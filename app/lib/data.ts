@@ -1,7 +1,7 @@
 import { unstable_noStore as noStore } from 'next/cache';
 import { sql } from '@vercel/postgres';
 import {
-  CustomersTableType,
+  CustomersTableType, Invoice,
 } from './definitions';
 import { formatCurrency } from './utils';
 import prisma from '@/app/lib/prisma';
@@ -220,7 +220,7 @@ export async function fetchInvoiceById(id: string) {
         amount: true,
         status: true,
       },
-    });
+    }) as Invoice | null;
     if (invoice) {
       // Convert amount from cents to dollars
       invoice.amount = invoice.amount / 100;
