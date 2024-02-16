@@ -1,12 +1,11 @@
 'use server';
 
 import { z } from 'zod';
-import { sql } from '@vercel/postgres';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { signIn } from '@/auth';
 import { AuthError } from 'next-auth';
-
+import prisma from './prisma';
 
 // This is temporary until @types/react-dom is updated
 export type State = {
@@ -56,16 +55,21 @@ export async function createInvoice(prevState: State, formData: FormData) {
   // Prepare data for insertion into the database
   const { customerId, amount, status } = validatedFields.data;
   const amountInCents = amount * 100;
-  const date = new Date().toISOString().split('T')[0];
+  const date = new Date().toISOString();
 
   // Insert data into the database
   try {
-    await sql`
-      INSERT INTO invoices (customer_id, amount, status, date)
-      VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
-    `;
+    await prisma.invoices.create({
+      data: {
+        customer_id: customerId,
+        amount: amountInCents,
+        status: status,
+        date: date,
+      },
+    });
   } catch (error) {
     // If a database error occurs, return a more specific error.
+    console.log("ERROR:", error)
     return {
       message: 'Database Error: Failed to Create Invoice.',
     };
@@ -102,11 +106,16 @@ export async function updateInvoice(
   const amountInCents = amount * 100;
 
   try {
-    await sql`
-      UPDATE invoices
-      SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
-      WHERE id = ${id}
-    `;
+    await prisma.invoices.update({
+      where: {
+        id,
+      },
+      data: {
+        customer_id: customerId,
+        amount: amountInCents,
+        status: status,
+      },
+    });
   } catch (error) {
     return {
       message: 'Database error updating invoice',
@@ -121,7 +130,11 @@ export async function deleteInvoice(id: string) {
   // @TODO add permissions check
 
   try {
-    await sql`DELETE FROM invoices WHERE id = ${id}`;
+    await prisma.invoices.delete({
+      where: {
+        id,
+      },
+    });
     revalidatePath('/dashboard/invoices');
     return {
       message: 'Deleted invoice',
