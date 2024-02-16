@@ -5,11 +5,12 @@ import {
   CustomersTableType,
   InvoiceForm,
   InvoicesTable,
-  LatestInvoiceRaw,
+  // LatestInvoiceRaw,
   User,
   Revenue,
 } from './definitions';
 import { formatCurrency } from './utils';
+import prisma from '@/app/lib/prisma';
 
 export async function fetchRevenue() {
   // Add noStore() here to prevent the response from being cached.
@@ -37,18 +38,35 @@ export async function fetchRevenue() {
 export async function fetchLatestInvoices() {
   noStore();
 
-  // Artificially delay a response for demo purposes.
-  await new Promise((resolve) => setTimeout(resolve, 600));
-
   try {
-    const data = await sql<LatestInvoiceRaw>`
-      SELECT invoices.amount, customers.name, customers.image_url, customers.email, invoices.id
-      FROM invoices
-      JOIN customers ON invoices.customer_id = customers.id
-      ORDER BY invoices.date DESC
-      LIMIT 5`;
+    // fyi, prisma can't flatten result of joined tables by itself
+    // unlike the following sql command
+    const data = await prisma.invoices.findMany({
+      select: {
+        amount: true,
+        id: true,
+        customers: {
+          select: {
+            name: true,
+            email: true,
+            image_url: true,
+          },
+        },
+      },
+      orderBy: {
+        date: 'desc',
+      },
+      take: 5,
+    });
 
-    const latestInvoices = data.rows.map((invoice) => ({
+    // const data = await sql<LatestInvoiceRaw>`
+    //   SELECT invoices.amount, customers.name, customers.image_url, customers.email, invoices.id
+    //   FROM invoices
+    //   JOIN customers ON invoices.customer_id = customers.id
+    //   ORDER BY invoices.date DESC
+    //   LIMIT 5`;
+
+    const latestInvoices = data.map((invoice) => ({
       ...invoice,
       amount: formatCurrency(invoice.amount),
     }));
